@@ -1,104 +1,103 @@
-import React from "react";
+import {useState, useEffect} from "react";
 import { Searchbar } from "./Searchbar/Searchbar";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
-
-
 
 import { ImageGallery } from "./ImageGallery/ImageGallery";
 import { ButtonLoadMore } from "./Button/Button";
 import { Modal } from "./Modal/Modal";
 import { Loader } from "./Loader/Loader";
 import { EndCart } from "./End/End";
+import { Box } from "./Box";
 
 
-export class App extends React.Component{
+export function App (){
+  const [searchName, setSearchName] = useState('');
+  const [page, setPage] = useState(1);
+  const [card, setCard] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [status, setStatus] = useState('Ible');
+  const [imgUrl, setImgUrl] = useState('');
 
-state ={
-  searchName: '',
-  page: 1,
-  card: [],
-  showModal: false,
-  status: 'Ible'
-}
-
-componentDidUpdate(prevProps, prevState){
-
-  const { page, searchName,  } = this.state;
- const URL = 'https://pixabay.com/api/';
+useEffect(() => {
+  const URL = 'https://pixabay.com/api/';
  const KEY = '29990165-8c350ed327b5f0dec080b7ac6';
  const per_page = 12;
-  if(prevState.searchName !== searchName || prevState.page !== page){
-    this.setState({status: 'pending'})
-  
+
+  if(searchName){
+    setStatus('pending')
     fetch(`${URL}?q=${searchName}&page=${page}&per_page=${per_page}&key=${KEY}&image_type=photo&orientation=horizontal`)
    .then(r => r.json())
    .then(card => {
     if(card.hits.length === 0){
-      this.setState({
-       status: 'reject'
-      })
+      setStatus('reject')
       toast.error("Nothing found on request")
       return;
     }
-
-      this.setState(prevState => {return {card: [...prevState.card,
-        ...card.hits.map(({ id, webformatURL, largeImageURL }) => ({
-          id,
-          webformatURL,
-          largeImageURL,
-        })),
-        
-      ], status: "resolv"}}
-    
-      )
+      setCard(prevState =>{
+        return page === 1
+        ? [
+            ...card.hits.map(({ id, webformatURL, largeImageURL }) => ({
+              id,
+              webformatURL,
+              largeImageURL,
+            })),
+          ]
+        : [
+            ...prevState,
+            ...card.hits.map(({ id, webformatURL, largeImageURL }) => ({
+              id,
+              webformatURL,
+              largeImageURL,
+            })),
+          ];
+      } )
+      setStatus("resolv");      
     }
  
   ).catch(err => err)
-  }
+  } 
+},[ searchName, page])
+
+
+const handleIncrementPage = () => {
+ setPage(prevState => prevState + 1 )
 }
 
-handleIncrementPage = () => {
-  this.setState(prevState => {return {page: prevState.page + 1} } )
-
-}
-
-handleFormSubmit = searchName => {
-this.setState({searchName, page: 1, card: []})
+const handleFormSubmit = searchName => {
+setSearchName(searchName);
+setPage(1);
+setCard([]);
 }
 
 
-toggleModal = () => {
-  this.setState(({ showModal }) => ({
-    showModal: !showModal,
-  }));
+const toggleModal = () =>  setShowModal(showModal => !showModal)
+
+const imgWindowModal = imgUrl => {
+  setImgUrl(imgUrl );
+  toggleModal();
 };
 
-imgWindowModal = imgUrl => {
-  this.setState({ imgUrl }, () => {
-    this.toggleModal();
-  });
-};
-
-  render(){
-    const { showModal, card, imgUrl, status } = this.state;
     return (
+<Box as="main" px={4} pb={3} textAlign = "center">
 
-      <div style={{padding:  20, textAlign: "center"}}>
-        <Searchbar onSubmit={this.handleFormSubmit}/>
-        {(status === 'resolv' || status === 'pending' )&& <ImageGallery images={card} onClick={this.imgWindowModal}/>}
+        <Searchbar onSubmit={handleFormSubmit}/>
 
-        {(card.length > 0 && status === 'resolv' && card.length % 12  === 0) && <ButtonLoadMore onClick={this.handleIncrementPage}/>}
+        {((status === 'resolv' || status === 'pending') && card )&& <ImageGallery images={card} onClick={imgWindowModal}/>}
+
+        {(card.length > 0 && status === 'resolv' && card.length % 12  === 0) && <ButtonLoadMore onClick={handleIncrementPage}/>}
+
         {card.length % 12 !== 0 && <EndCart/> }
+
         {status === 'pending' && <Loader/>}
-        {showModal && (
-          <Modal onClose={this.toggleModal}>
-            <img src={imgUrl} alt="" />
-          </Modal>
-        )}
+
+         {showModal && (
+        <Modal  onClose={toggleModal}>
+          <img src={imgUrl} alt="" />
+        </Modal>
+      )}
         <ToastContainer />
-      </div>
+
+      </Box>
     );
   }
-};
